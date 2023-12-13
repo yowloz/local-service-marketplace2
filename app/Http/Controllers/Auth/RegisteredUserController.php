@@ -37,23 +37,31 @@ class RegisteredUserController extends Controller
             'email' => ['required', 'string', 'email', 'max:255', 'unique:'.User::class],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
-
+    
         $user = User::create([
-            'fname' => $request->fname,
-            'lname' => $request->lname,
+            'first_name' => $request->fname,
+            'last_name' => $request->lname,
+            'name' => $request->fname . ' ' . $request->lname,
             'address' => $request->address,
             'email' => $request->email,
+            'messenger_color' => '#2180f3',
             'password' => Hash::make($request->password),
-            'user_type' => 'admin', // Set the user_type to 'client'
+            'role' => 'user',
         ]);
+        
 
-        // Send the email verification notification
         $user->sendEmailVerificationNotification();
-
-        event(new Registered($user));
-
+    
+        // Log the user registration as an activity
+        activity('created')
+            ->causedBy($user) // Set the user who caused the activity
+            ->performedOn($user) // Set the user as the subject of the activity
+            ->withProperties(['type' => 'registration']) // Add a property to specify the type
+            ->log('User Registration');
+    
         Auth::login($user);
-
-        return redirect(RouteServiceProvider::HOME);
+    
+        return redirect()->route('verification.notice')->with('resent', true);
     }
+    
 }

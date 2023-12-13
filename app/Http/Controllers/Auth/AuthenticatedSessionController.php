@@ -2,13 +2,14 @@
 
 namespace App\Http\Controllers\Auth;
 
-use App\Http\Controllers\Controller;
-use App\Http\Requests\Auth\LoginRequest;
-use App\Providers\RouteServiceProvider;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
+use App\Models\UserActivity;
+use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\RedirectResponse;
+use App\Providers\RouteServiceProvider;
+use App\Http\Requests\Auth\LoginRequest;
 
 class AuthenticatedSessionController extends Controller
 {
@@ -17,7 +18,7 @@ class AuthenticatedSessionController extends Controller
      * Display the login view.
      */
     public function create(): View
-    {
+    {        
         return view('auth.login');
     }
 
@@ -30,6 +31,15 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
+        $url = '';
+        if($request->user()->role === 'admin'){
+            $url = 'admin/dashboard';
+        }elseif($request->user()->role === 'worker'){
+            $url = 'worker/dashboard';
+        }elseif($request->user()->role === 'user'){
+            $url = 'home';
+        }
+
         // Check if the user is verified
         if (!Auth::user()->hasVerifiedEmail()) {
             // Send the email verification notification
@@ -38,8 +48,7 @@ class AuthenticatedSessionController extends Controller
             // You can customize the message to inform the user about the resend.
             return redirect()->route('verification.notice')->with('resent', true);
         }
-
-        return redirect()->intended(RouteServiceProvider::HOME);
+        return redirect()->intended($url);
     }
 
     /**
@@ -47,6 +56,11 @@ class AuthenticatedSessionController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        activity('logged_out')
+            ->causedBy(Auth::user()) // Set the user who caused the activity (optional)
+            ->performedOn(Auth::user()) // Set the user as the subject of the activity
+            ->log('User logged out');
+
         Auth::guard('web')->logout();
 
         $request->session()->invalidate();
@@ -55,4 +69,5 @@ class AuthenticatedSessionController extends Controller
 
         return redirect('/');
     }
+
 }
